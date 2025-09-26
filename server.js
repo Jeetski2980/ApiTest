@@ -18,34 +18,34 @@ app.use(cors({
 
 // Load API key
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY;
-console.log("GOOGLE_API_KEY loaded?", !!GEMINI_API_KEY); // true/false check
+console.log("GOOGLE_API_KEY loaded?", !!GEMINI_API_KEY); // Should print true in Render logs
 
+// Helper to call Gemini
 async function callGemini(model, contents) {
-  if (!GEMINI_API_KEY) throw new Error("GOOGLE_API_KEY missing");
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  const chosenModel = model || "gemini-1.5-flash"; // default model
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${chosenModel}:generateContent?key=${GEMINI_API_KEY}`;
   const payload = { contents };
 
   const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
 
   if (!r.ok) {
     const text = await r.text();
     console.error("Gemini API error:", r.status, text);
-    throw new Error(`Gemini API failed: ${r.status}`);
+    throw new Error(`Gemini API failed: ${r.status} ${text}`);
   }
 
   const data = await r.json();
-  return data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+  return data?.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "";
 }
 
 // --- Chatbot endpoint ---
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages, model = 'gemini-1.5-flash' } = req.body || {};
+    const { messages, model } = req.body || {};
     if (!Array.isArray(messages)) {
       return res.status(400).json({ error: "messages[] required" });
     }
@@ -63,7 +63,25 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// --- Serve frontend (index.html) ---
+// --- Question generator endpoint ---
+app.post('/api/question', async (req, res) => {
+  try {
+    const { topic, count = 5, model } = req.body || {};
+    if (!topic) return res.status(400).json({ error: "topic required" });
+
+    const contents = [
+      { role: 'user', parts: [{ text: `Generate ${count} practice questions about: ${topic}` }] }
+    ];
+
+    const questions = await callGemini(model, contents);
+    res.json({ questions });
+  } catch (err) {
+    console.error("Question error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Serve frontend (index.html in public/) ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, 'public')));
