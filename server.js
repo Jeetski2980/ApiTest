@@ -18,11 +18,15 @@ app.use(cors({
 
 // Load API key
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY;
-console.log("GOOGLE_API_KEY loaded?", !!GEMINI_API_KEY); // Should print true in Render logs
+console.log("GOOGLE_API_KEY loaded?", !!GEMINI_API_KEY);
 
-// Helper to call Gemini
+// --- Helper: Call Gemini ---
 async function callGemini(model, contents) {
-  const chosenModel = model || "gemini-1.5-flash"; // default model
+  // ✅ Force valid models only
+  const chosenModel = ["gemini-1.5-flash", "gemini-1.5-pro"].includes(model)
+    ? model
+    : "gemini-1.5-flash"; // default
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${chosenModel}:generateContent?key=${GEMINI_API_KEY}`;
   const payload = { contents };
 
